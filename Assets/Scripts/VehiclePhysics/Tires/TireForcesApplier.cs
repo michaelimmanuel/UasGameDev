@@ -167,6 +167,18 @@ namespace VehiclePhysics
                     Fx_req = Mathf.Clamp(-kx * ws.Vx, -Fx_lim, Fx_lim);
                 }
 
+                // Subtract brake force (if any) so chassis receives braking longitudinal force.
+                // BrakeSystem provides positive magnitudes in wheelBrakeForce[]. Convert to signed
+                // longitudinal brake force that opposes forward wheel motion.
+                if (brakeSystem != null && brakeSystem.wheelBrakeForce != null && brakeSystem.wheelBrakeForce.Length == states.Length)
+                {
+                    float brakeForce = brakeSystem.wheelBrakeForce[i];
+                    // Determine motion direction at wheel: use Vx to sign brake (opposes ground motion)
+                    float motionSign = Mathf.Sign(ws.Vx != 0f ? ws.Vx : (ws.omega * w.wheelRadius));
+                    float brakeSigned = -motionSign * Mathf.Abs(brakeForce);
+                    Fx_req = Mathf.Clamp(Fx_req + brakeSigned, -Fx_lim, Fx_lim);
+                }
+
                 // Front Fx reserve: scale down front longitudinal force when cornering
                 if (enableFrontFxReserve && suspension.wheels[i].isFront)
                 {
@@ -227,6 +239,12 @@ namespace VehiclePhysics
 
                 // Clamp via ellipse
                 Vector2 F = ClampEllipse(new Vector2(Fx_req, Fy_req), new Vector2(Fx_lim, Fy_lim));
+                // Write the final applied longitudinal force back to SlipCalculator so WheelDynamics
+                // can use the actual applied force to compute wheel reaction torque.
+                if (slipCalc != null && slipCalc.appliedFx != null && slipCalc.appliedFx.Length > i)
+                {
+                    slipCalc.appliedFx[i] = F.x;
+                }
                 float u = Utilization(F, Fx_lim, Fy_lim);
                 _utilization[i] = u;
 

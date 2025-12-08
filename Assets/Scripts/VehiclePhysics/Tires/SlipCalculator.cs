@@ -17,11 +17,12 @@ namespace VehiclePhysics
         [Tooltip("Min forward speed added for slip angle to keep steering responsive. Higher = less sensitive at low speed.")]
         public float aEpsilon = 2.0f; // m/s - increased to prevent false slip angles at low speed
 
-        [Header("Outputs (debug)")] 
+        [Header("Outputs (debug)" )] 
         public float[] slipRatio;     // per wheel
         public float[] slipAngleDeg;  // per wheel
         public float[] muX;           // longitudinal μ
         public float[] muY;           // lateral μ
+        public float[] appliedFx;     // final applied longitudinal force (N) per wheel - written by TireForcesApplier
 
         void Awake()
         {
@@ -42,6 +43,7 @@ namespace VehiclePhysics
             slipAngleDeg = new float[n];
             muX = new float[n];
             muY = new float[n];
+            appliedFx = new float[n];
         }
 
         void FixedUpdate()
@@ -72,6 +74,7 @@ namespace VehiclePhysics
                     slipAngleDeg[i] = 0f;
                     muX[i] = 0f;
                     muY[i] = 0f;
+                    appliedFx[i] = 0f;
                     continue;
                 }
 
@@ -99,45 +102,18 @@ namespace VehiclePhysics
                 
                 slipRatio[i] = s;
 
-                // Slip angle
-                float alphaRad = Mathf.Atan2(ws.Vy, Mathf.Abs(ws.Vx) + aEpsilon);
+                // Slip angle - use adaptive epsilon to avoid suppressing angle at low speed
+                // effectiveAEpsilon scales from (aEpsilon*2) at very low speed down to (aEpsilon*0.5)
+                // at higher speeds to keep steering responsive while retaining stability at near-zero speed.
+                float speedFactorA = Mathf.Clamp01(Mathf.Abs(ws.Vx) / 5f); // ramp from 0..5 m/s
+                float effectiveAEpsilon = Mathf.Lerp(aEpsilon * 2f, aEpsilon * 0.5f, speedFactorA);
+                float alphaRad = Mathf.Atan2(ws.Vy, Mathf.Abs(ws.Vx) + effectiveAEpsilon);
                 float alphaDeg = alphaRad * Mathf.Rad2Deg;
                 slipAngleDeg[i] = alphaDeg;
 
                 // μ values from tire model
                 muX[i] = tireModel.MuX(s, ws.loadN, ws.isFront);
                 muY[i] = tireModel.MuY(alphaDeg, ws.loadN, ws.isFront);
-            }
-        }
-
-        void OnGUI()
-        {
-            // Simple telemetry overlay (top-left) with safe layout pairing
-            if (slipRatio == null) return;
-            const int width = 260;
-            bool areaStarted = false;
-            try
-            {
-                GUILayout.BeginArea(new Rect(10, 10, width, 400), GUI.skin.box);
-                areaStarted = true;
-                GUILayout.Label("Wheel Telemetry (Task 2)");
-                if (suspension != null && suspension.wheels != null && suspension.CurrentWheelStates != null)
-                {
-                    int n = Mathf.Min(suspension.wheels.Length, slipRatio.Length);
-                    for (int i = 0; i < n; i++)
-                    {
-                        var ws = suspension.CurrentWheelStates[i];
-                        float s = (i < slipRatio.Length) ? slipRatio[i] : 0f;
-                        float a = (i < slipAngleDeg.Length) ? slipAngleDeg[i] : 0f;
-                        float mx = (i < muX.Length) ? muX[i] : 0f;
-                        float my = (i < muY.Length) ? muY[i] : 0f;
-                        GUILayout.Label($"[{i}] N={ws.loadN:F0} s={s:F3} α={a:F1}° μx={mx:F2} μy={my:F2}");
-                    }
-                }
-            }
-            finally
-            {
-                if (areaStarted) GUILayout.EndArea();
             }
         }
     }

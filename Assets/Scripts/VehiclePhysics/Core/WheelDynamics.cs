@@ -122,25 +122,30 @@ namespace VehiclePhysics
                 // If both are near zero, rotationSign stays 0 and brake has no directional effect
                 // (which is correct - car is stationary)
 
-                // Tire reaction torque: this represents the road's resistance to wheel spin
-                // When wheel is trying to spin faster than ground (acceleration), road pushes back
-                // When wheel is trying to spin slower than ground (braking), road pushes forward
+                // Tire reaction torque: prefer using the actual applied longitudinal force computed
+                // by TireForcesApplier (after ellipse/clamp). This keeps wheel spin consistent with
+                // the force actually applied to the chassis. Fallback to μx-based approximation
+                // if appliedFx is not available.
                 float T_tire = 0f;
-                if (slipCalc != null && slipCalc.muX != null && slipCalc.muX.Length == n)
+                if (slipCalc != null)
                 {
-                    float N = ws.loadN;
-                    float Fx_lim = Mathf.Max(0f, slipCalc.muX[i] * N);
-                    
-                    // Calculate slip-based tire reaction
-                    // The tire reaction opposes the difference between wheel speed and ground speed
-                    float slipRatio = (slipCalc.slipRatio != null && i < slipCalc.slipRatio.Length) 
-                        ? slipCalc.slipRatio[i] : 0f;
-                    
-                    // Tire reaction torque = friction force * radius
-                    // Positive slip ratio = wheel faster than ground = road slows wheel down = negative reaction
-                    // Negative slip ratio = wheel slower than ground = road speeds wheel up = positive reaction
-                    float Fx_tire = -Mathf.Sign(slipRatio) * Mathf.Min(Mathf.Abs(slipRatio) * Fx_lim * 2f, Fx_lim);
-                    T_tire = Fx_tire * R;
+                    if (slipCalc.appliedFx != null && slipCalc.appliedFx.Length == n)
+                    {
+                        // appliedFx is the longitudinal force applied to the chassis in wheel-forward direction
+                        float Fx_applied = slipCalc.appliedFx[i];
+                        // Reaction torque on the wheel opposes the applied chassis force
+                        T_tire = -Fx_applied * R;
+                    }
+                    else if (slipCalc.muX != null && slipCalc.muX.Length == n)
+                    {
+                        float N = ws.loadN;
+                        float muX = slipCalc.muX[i];
+                        float Fx_max = muX * N;
+                        float slipRatio = (slipCalc.slipRatio != null && i < slipCalc.slipRatio.Length) 
+                            ? slipCalc.slipRatio[i] : 0f;
+                        float Fx_tire = -Mathf.Sign(slipRatio) * Fx_max;
+                        T_tire = Fx_tire * R;
+                    }
                 }
 
                 // Net torque on wheel: drive + tire reaction - brake
