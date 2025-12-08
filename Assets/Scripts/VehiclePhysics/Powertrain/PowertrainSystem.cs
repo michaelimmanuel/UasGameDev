@@ -11,10 +11,21 @@ namespace VehiclePhysics
         public SuspensionSystem suspension;
         public EngineTorqueCurve engineCurve;
         public GearboxData gearbox;
+        public SlipCalculator slipCalc; // optional: for traction assist
 
         [Header("Inputs (set by controller)")]
         [Range(0f,1f)] public float throttle;
         [Tooltip("Brake torque input (0..1) forwarded to BrakeSystem if present")] [Range(0f,1f)] public float brake;
+
+        [Header("Engine Braking")]
+        [Tooltip("Speed scale (m/s) for smoothing engine braking sign near rest. Larger = softer around 0.")]
+        public float engineBrakeSpeedEpsilon = 0.3f;
+
+        [Header("Traction Assist")]
+        [Tooltip("Limit drive force to available μx·N to reduce launch wheelspin.")]
+        public bool enableTractionAssist = true;
+        [Tooltip("Blend factor for assist (0=no assist, 1=full cap to μx·N).")]
+        [Range(0f,1f)] public float tractionAssistStrength = 1f;
 
         [Header("State")]
         public int currentGear = 1; // 1-based user view; internally index = currentGear-1
@@ -30,6 +41,7 @@ namespace VehiclePhysics
         void Awake()
         {
             if (suspension == null) suspension = GetComponentInParent<SuspensionSystem>();
+            if (slipCalc == null) slipCalc = GetComponentInParent<SlipCalculator>();
         }
 
         void FixedUpdate()
@@ -82,12 +94,48 @@ namespace VehiclePhysics
             engineBrakeTorque = engineCurve.EngineBrakeTorque(engineRpm, throttle);
 
             // Determine motion direction for engine braking so it always opposes current wheel motion.
-            float motionSign = Mathf.Sign(avgVx);
-            if (Mathf.Abs(avgVx) < 0.05f) motionSign = 0f; // near rest: no directional brake torque (will rely on damping elsewhere)
+            // Smooth directional factor based on average powered-wheel forward speed.
+            float eps = Mathf.Max(1e-3f, engineBrakeSpeedEpsilon);
+            float motionFactor = Mathf.Clamp(avgVx / eps, -1f, 1f);
 
-            // Apply torque: driving torque always positive forward, braking torque opposes motion.
-            float wheelTorque = (engineTorque - engineBrakeTorque * motionSign) * ratio * gearbox.efficiency;
+            // Apply torque: 
+            // - engineTorque is always positive (forward acceleration when throttle > 0)
+            // - engineBrakeTorque should oppose motion direction (slow down the car)
+            // When moving forward (motionFactor > 0): subtract engine brake to slow down
+            // When moving backward (motionFactor < 0): add engine brake to slow down (bring toward zero)
+            float wheelTorque = (engineTorque - engineBrakeTorque * motionFactor) * ratio * gearbox.efficiency;
+            
+            // When no throttle and nearly stationary, zero out to prevent any creep
+            if (throttle < 0.01f && Mathf.Abs(avgVx) < 0.5f)
+            {
+                wheelTorque = 0f;
+            }
+            
             float perWheelTorque = wheelTorque / countPowered; // open diff distribution
+
+            // Traction assist: cap drive force by μx·N per powered wheel if data available
+            if (enableTractionAssist && slipCalc != null && slipCalc.muX != null && slipCalc.muX.Length == states.Length)
+            {
+                float rEff = r;
+                // Compute per-wheel requested force from torque distribution
+                float scale = 1f;
+                for (int i = 0; i < states.Length; i++)
+                {
+                    if (!suspension.wheels[i].isPowered) continue;
+                    float Fx_req = perWheelTorque / rEff;
+                    float N = states[i].loadN;
+                    float Fx_lim = Mathf.Max(0f, slipCalc.muX[i] * N);
+                    if (Fx_req > 1e-4f && Fx_lim > 0f)
+                    {
+                        float s = Fx_lim / Fx_req;
+                        scale = Mathf.Min(scale, s);
+                    }
+                }
+                // Blend assist
+                scale = Mathf.Lerp(1f, scale, tractionAssistStrength);
+                wheelTorque *= scale;
+                perWheelTorque = wheelTorque / countPowered;
+            }
 
             // Convert to force: F = T / R
             for (int i = 0; i < states.Length; i++)

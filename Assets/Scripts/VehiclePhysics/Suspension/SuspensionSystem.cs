@@ -178,6 +178,7 @@ namespace VehiclePhysics
                     loadN      = normalForce,
                     Vx         = Vx,
                     Vy         = Vy,
+                    omega      = w.state.omega, // carry forward; updated by WheelDynamics
                     steerDeg   = w.steerDeg,
                     isFront    = w.isFront,
                     isPowered  = w.isPowered,

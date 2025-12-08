@@ -119,6 +119,54 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &465401662
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 465401664}
+  - component: {fileID: 465401663}
+  m_Layer: 0
+  m_Name: SkidmarkManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &465401663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 465401662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87495a5286b32aa42b396b45c1e6810b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.Visuals.SkidmarkManager
+  skidMaterial: {fileID: 0}
+  defaultWidth: 0.18
+  normalOffset: 0.01
+  maxSegments: 4000
+--- !u!4 &465401664
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 465401662}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.07, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &578601420
 GameObject:
   m_ObjectHideFlags: 0
@@ -358,6 +406,50 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!114 &1147701128 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 926434950792251831, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+  m_PrefabInstance: {fileID: 1693849067418252699}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dd133c59d2b4854090f560e14349b8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.BrakeSystem
+--- !u!114 &1147701129 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8674403455154366140, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+  m_PrefabInstance: {fileID: 1693849067418252699}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1d0eb68cb90b914caa2116ec0bde52e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.PowertrainSystem
+--- !u!114 &1147701132 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 151154926778762572, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+  m_PrefabInstance: {fileID: 1693849067418252699}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7f5d25dce11b1f45a10222c39216795, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.SlipCalculator
+--- !u!114 &1147701133 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1816659653586185766, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+  m_PrefabInstance: {fileID: 1693849067418252699}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7116458ed5658b4f8e154a31dd3c67e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.Suspension.SuspensionSystem
 --- !u!1 &1347942689
 GameObject:
   m_ObjectHideFlags: 0
@@ -521,9 +613,41 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 195849397030297339, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: powertrain
+      value: 
+      objectReference: {fileID: 1147701129}
+    - target: {fileID: 195849397030297339, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: brakeSystem
+      value: 
+      objectReference: {fileID: 1147701128}
+    - target: {fileID: 926434950792251831, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: powertrain
+      value: 
+      objectReference: {fileID: 1147701129}
+    - target: {fileID: 926434950792251831, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: suspension
+      value: 
+      objectReference: {fileID: 1147701133}
+    - target: {fileID: 926434950792251831, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: maxBrakeTorque
+      value: 5000
+      objectReference: {fileID: 0}
+    - target: {fileID: 926434950792251831, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: maxHandbrakeTorque
+      value: 16000
+      objectReference: {fileID: 0}
     - target: {fileID: 1321311961330773438, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
       propertyPath: m_Name
       value: BBW30_Tune(Sample)
+      objectReference: {fileID: 0}
+    - target: {fileID: 4178902147604437898, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: speedRef
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 4178902147604437898, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: minFactor
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 8436989429247684027, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
       propertyPath: m_LocalPosition.x
@@ -565,6 +689,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8674403455154366140, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: slipCalc
+      value: 
+      objectReference: {fileID: 1147701132}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -578,3 +706,4 @@ SceneRoots:
   - {fileID: 843897077}
   - {fileID: 578601424}
   - {fileID: 1693849067418252699}
+  - {fileID: 465401664}

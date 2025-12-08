@@ -25,8 +25,8 @@ namespace VehiclePhysics
         public float longitudinalDampingK = 200f; // N per (m/s)
 
         [Header("Lateral Force from Slip Angle")]
-        [Tooltip("Slip angle at which lateral force reaches μy*N (deg). Typical street tire 6–10°.")]
-        public float alphaPeakDeg = 8f;
+        [Tooltip("Slip angle deadzone (deg). Below this angle, force ramps linearly to prevent jitter near zero.")]
+        public float alphaDeadzoneDeg = 1.5f;
         [Tooltip("Blend low-speed lateral damping to avoid jitter when |V| < holdSpeed.")]
         public float lowSpeedLateralK = 600f;
         [Tooltip("Hard cap: if local speed at contact is below this, suppress lateral force (Fy=0) to prevent big arrows at standstill.")]
@@ -37,6 +37,14 @@ namespace VehiclePhysics
         public float lateralMaxPerSpeed = 1500f; // N per (m/s)
 
         [Header("Rest Hold (optional)")]
+            [Header("Front Fx Reserve (cornering)")]
+            [Tooltip("Reduces front longitudinal request as slip angle grows to preserve lateral grip and reduce throttle-understeer.")]
+            public bool enableFrontFxReserve = true;
+            [Tooltip("Strength of reserve (0..1). 0=no reserve, 1=full reserve.")]
+            [Range(0f,1f)] public float frontFxReserveStrength = 0.8f;
+            [Tooltip("Slip angle (deg) at which reserve fully applies.")]
+            public float frontFxReservePeakDeg = 10f;
+
         [Tooltip("Boost damping near zero speed to reduce creeping on slight slopes.")]
         public bool holdAtRest = true;
         [Tooltip("Speed below which hold boost is applied (m/s).")]
@@ -90,8 +98,15 @@ namespace VehiclePhysics
             var states = suspension.CurrentWheelStates;
             if (states == null) return;
 
-            // Estimate any external forward request (e.g., DebugNudge) as a body force magnitude along car forward
-            // We use rb.velocity change indirectly; simpler: distribute a placeholder request based on Vx sign.
+            // Check if vehicle is nearly stationary
+            float vehicleSpeed = rb.linearVelocity.magnitude;
+            bool isStationary = vehicleSpeed < 0.5f;  // Increased threshold
+            
+            // Check for any input
+            bool hasThrottleInput = powertrain != null && powertrain.throttle > 0.01f;
+            bool hasBrakeInput = brakeSystem != null && (brakeSystem.brakeInput > 0.01f || brakeSystem.handbrakeInput > 0.01f);
+            bool hasAnyInput = hasThrottleInput || hasBrakeInput;
+
             for (int i = 0; i < states.Length; i++)
             {
                 var w = suspension.wheels[i];
@@ -105,6 +120,30 @@ namespace VehiclePhysics
                 float N = ws.loadN;
                 if (!ws.grounded || N <= 1e-3f)
                 {
+                    _utilization[i] = 0f;
+                    _lastForces[i] = Vector3.zero;
+                    continue;
+                }
+
+                // If stationary and no throttle input, apply a holding force instead of tire physics
+                if (isStationary && !hasThrottleInput)
+                {
+                    // Apply a small holding force to counter any drift
+                    // This opposes any small velocity to keep the car still
+                    Vector3 velocity = rb.linearVelocity;
+                    if (velocity.magnitude > 0.01f)
+                    {
+                        // Apply holding force per wheel (distributed)
+                        float holdForceMag = 500f; // N per wheel
+                        Vector3 holdDir = -velocity.normalized;
+                        Vector3 holdForceVec = holdDir * Mathf.Min(holdForceMag, velocity.magnitude * 1000f);
+                        rb.AddForceAtPosition(holdForceVec / states.Length, ws.position, ForceMode.Force);
+                        _lastForces[i] = holdForceVec / states.Length;
+                    }
+                    else
+                    {
+                        _lastForces[i] = Vector3.zero;
+                    }
                     _utilization[i] = 0f;
                     continue;
                 }
@@ -128,11 +167,26 @@ namespace VehiclePhysics
                     Fx_req = Mathf.Clamp(-kx * ws.Vx, -Fx_lim, Fx_lim);
                 }
 
+                // Front Fx reserve: scale down front longitudinal force when cornering
+                if (enableFrontFxReserve && suspension.wheels[i].isFront)
+                {
+                    float alphaDegFront = (slipCalc.slipAngleDeg != null && slipCalc.slipAngleDeg.Length > i) ? Mathf.Abs(slipCalc.slipAngleDeg[i]) : 0f;
+                    float reserve = Mathf.Clamp01(alphaDegFront / Mathf.Max(0.1f, frontFxReservePeakDeg));
+                    float scale = 1f - frontFxReserveStrength * reserve;
+                    Fx_req *= scale;
+                }
+
                 // Lateral request from slip angle: scale toward limit based on α/α_peak
                 float Fy_req;
                 float alphaDeg = (slipCalc.slipAngleDeg != null && slipCalc.slipAngleDeg.Length > i) ? slipCalc.slipAngleDeg[i] : 0f;
                 // Local speed magnitude at contact
                 float localSpeed = Mathf.Sqrt(ws.Vx * ws.Vx + ws.Vy * ws.Vy);
+                
+                // Speed-based scaling: lateral force builds up with speed to prevent spikes at low speed
+                float speedForFullLateral = 5.0f; // m/s at which full lateral force is available
+                float speedScale = Mathf.Clamp01(localSpeed / speedForFullLateral);
+                float Fy_lim_scaled = Fy_lim * speedScale;
+                
                 if (localSpeed < lateralZeroSpeed)
                 {
                     // At near standstill, suppress lateral force entirely to avoid spurious torque couples
@@ -142,17 +196,31 @@ namespace VehiclePhysics
                 {
                     // At near rest, rely on damping to avoid twitching
                     float ky = lowSpeedLateralK * (holdAtRest ? holdBoost : 1f);
-                    Fy_req = Mathf.Clamp(-ky * ws.Vy, -Fy_lim, Fy_lim);
+                    Fy_req = Mathf.Clamp(-ky * ws.Vy, -Fy_lim_scaled, Fy_lim_scaled);
                 }
                 else
                 {
-                    // Lateral force should oppose slip angle direction
-                    float alphaNorm = Mathf.Clamp(alphaDeg / Mathf.Max(1e-3f, alphaPeakDeg), -1f, 1f);
-                    Fy_req = Mathf.Clamp(-alphaNorm * Fy_lim, -Fy_lim, Fy_lim);
+                    // Lateral force opposes slip angle direction.
+                    // muY curve already handles the slip angle response (peak, falloff, etc.),
+                    // so Fy_lim already contains the correct magnitude.
+                    // Use a deadzone with linear ramp to prevent force jitter at very small slip angles.
+                    float absAlpha = Mathf.Abs(alphaDeg);
+                    float deadzone = Mathf.Max(0.1f, alphaDeadzoneDeg);
+                    if (absAlpha < deadzone)
+                    {
+                        // Linear blend within deadzone: smooth transition from 0 to full force
+                        float blend = absAlpha / deadzone;
+                        Fy_req = -Mathf.Sign(alphaDeg) * blend * Fy_lim_scaled;
+                    }
+                    else
+                    {
+                        // Full lateral force beyond deadzone
+                        Fy_req = -Mathf.Sign(alphaDeg) * Fy_lim_scaled;
+                    }
                     // If speed is low but not zero, cap magnitude to avoid long arrows during deceleration
                     if (localSpeed < lateralCapSpeed)
                     {
-                        float cap = Mathf.Clamp(lateralMaxPerSpeed * localSpeed, 0f, Fy_lim);
+                        float cap = Mathf.Clamp(lateralMaxPerSpeed * localSpeed, 0f, Fy_lim_scaled);
                         Fy_req = Mathf.Clamp(Fy_req, -cap, cap);
                     }
                 }
@@ -194,13 +262,23 @@ namespace VehiclePhysics
         void OnGUI()
         {
             if (!showUtilizationHud || _utilization == null) return;
-            GUILayout.BeginArea(new Rect(280, 10, 200, 200), GUI.skin.box);
-            GUILayout.Label("Friction Ellipse Utilization");
-            for (int i = 0; i < _utilization.Length; i++)
+            bool areaStarted = false;
+            try
             {
-                GUILayout.Label($"[{i}] u={_utilization[i]:F2}");
+                GUILayout.BeginArea(new Rect(280, 10, 200, 200), GUI.skin.box);
+                areaStarted = true;
+                GUILayout.Label("Friction Ellipse Utilization");
+                int n = _utilization.Length;
+                for (int i = 0; i < n; i++)
+                {
+                    float u = _utilization[i];
+                    GUILayout.Label($"[{i}] u={u:F2}");
+                }
             }
-            GUILayout.EndArea();
+            finally
+            {
+                if (areaStarted) GUILayout.EndArea();
+            }
         }
 
         void OnDrawGizmos()

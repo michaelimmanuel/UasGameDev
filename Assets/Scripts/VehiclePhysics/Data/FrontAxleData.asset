@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd342e261451c4c43951114fdc434ae2, type: 3}
   m_Name: FrontAxleData
   m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.SuspensionAxleData
-  springK: 36000
+  springK: 50000
   damperC: 6000
   restLength: 0.19
   maxTravel: 0.12

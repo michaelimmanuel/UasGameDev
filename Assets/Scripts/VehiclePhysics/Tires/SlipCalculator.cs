@@ -13,9 +13,9 @@ namespace VehiclePhysics
 
         [Header("Epsilons")]
         [Tooltip("Min forward speed used as denominator to keep slip ratio stable at low speed.")]
-        public float sEpsilon = 0.5f; // m/s
-        [Tooltip("Min forward speed added for slip angle to keep steering responsive.")]
-        public float aEpsilon = 0.5f; // m/s
+        public float sEpsilon = 0.15f; // m/s - lowered for more responsive slip ratio
+        [Tooltip("Min forward speed added for slip angle to keep steering responsive. Higher = less sensitive at low speed.")]
+        public float aEpsilon = 2.0f; // m/s - increased to prevent false slip angles at low speed
 
         [Header("Outputs (debug)")] 
         public float[] slipRatio;     // per wheel
@@ -53,6 +53,13 @@ namespace VehiclePhysics
             if (slipRatio == null || slipRatio.Length != n) AllocateArrays();
             if (tireModel == null) return; // wait until model assigned
 
+            // Reset combined slip tracking for this frame
+            var simpleTireModel = tireModel as SimpleTireModel;
+            if (simpleTireModel != null)
+            {
+                simpleTireModel.ResetSlipTracking();
+            }
+
             for (int i = 0; i < n; i++)
             {
                 var w = suspension.wheels[i];
@@ -68,10 +75,28 @@ namespace VehiclePhysics
                     continue;
                 }
 
-                // Approximate wheel angular speed from linear forward velocity (no torque yet)
-                float omegaApprox = ws.Vx / Mathf.Max(radius, 1e-4f); // rad/s
-                float denom = Mathf.Max(Mathf.Abs(ws.Vx), sEpsilon);
-                float s = ((radius * omegaApprox) - ws.Vx) / denom; // currently ~0 until torque model added
+                // Prefer integrated per-wheel angular speed if available
+                float omegaUse = ws.omega;
+                if (Mathf.Abs(omegaUse) < 1e-4f)
+                {
+                    // Fallback approximation from kinematics
+                    omegaUse = ws.Vx / Mathf.Max(radius, 1e-4f);
+                }
+                
+                // Use higher epsilon at low speed to prevent false slip detection
+                float speedFactor = Mathf.Clamp01(Mathf.Abs(ws.Vx) / 5f); // ramp from 0-5 m/s
+                float effectiveEpsilon = Mathf.Lerp(sEpsilon * 3f, sEpsilon, speedFactor);
+                float denom = Mathf.Max(Mathf.Abs(ws.Vx), effectiveEpsilon);
+                
+                float wheelSpeed = radius * omegaUse;
+                float groundSpeed = ws.Vx;
+                float s = (wheelSpeed - groundSpeed) / denom;
+                
+                // Apply small deadband to filter numerical noise during normal driving
+                const float slipDeadband = 0.02f;
+                if (Mathf.Abs(s) < slipDeadband)
+                    s = 0f;
+                
                 slipRatio[i] = s;
 
                 // Slip angle
@@ -87,20 +112,33 @@ namespace VehiclePhysics
 
         void OnGUI()
         {
-            // Simple telemetry overlay (top-left)
+            // Simple telemetry overlay (top-left) with safe layout pairing
             if (slipRatio == null) return;
             const int width = 260;
-            GUILayout.BeginArea(new Rect(10, 10, width, 400), GUI.skin.box);
-            GUILayout.Label("Wheel Telemetry (Task 2)");
-            if (suspension != null && suspension.wheels != null)
+            bool areaStarted = false;
+            try
             {
-                for (int i = 0; i < suspension.wheels.Length; i++)
+                GUILayout.BeginArea(new Rect(10, 10, width, 400), GUI.skin.box);
+                areaStarted = true;
+                GUILayout.Label("Wheel Telemetry (Task 2)");
+                if (suspension != null && suspension.wheels != null && suspension.CurrentWheelStates != null)
                 {
-                    var ws = suspension.CurrentWheelStates[i];
-                    GUILayout.Label($"[{i}] N={ws.loadN:F0} s={slipRatio[i]:F3} α={slipAngleDeg[i]:F1}° μx={muX[i]:F2} μy={muY[i]:F2}");
+                    int n = Mathf.Min(suspension.wheels.Length, slipRatio.Length);
+                    for (int i = 0; i < n; i++)
+                    {
+                        var ws = suspension.CurrentWheelStates[i];
+                        float s = (i < slipRatio.Length) ? slipRatio[i] : 0f;
+                        float a = (i < slipAngleDeg.Length) ? slipAngleDeg[i] : 0f;
+                        float mx = (i < muX.Length) ? muX[i] : 0f;
+                        float my = (i < muY.Length) ? muY[i] : 0f;
+                        GUILayout.Label($"[{i}] N={ws.loadN:F0} s={s:F3} α={a:F1}° μx={mx:F2} μy={my:F2}");
+                    }
                 }
             }
-            GUILayout.EndArea();
+            finally
+            {
+                if (areaStarted) GUILayout.EndArea();
+            }
         }
     }
 }

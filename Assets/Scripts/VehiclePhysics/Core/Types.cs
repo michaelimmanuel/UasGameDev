@@ -10,6 +10,7 @@ namespace VehiclePhysics
         public float   loadN;      // normal force N
         public float   Vx;         // local forward velocity (m/s)
         public float   Vy;         // local lateral velocity (m/s)
+        public float   omega;      // wheel angular speed (rad/s)
         public float   steerDeg;   // steering angle (deg)
         public bool    isFront;    // front axle flag
         public bool    isPowered;  // driven wheel flag

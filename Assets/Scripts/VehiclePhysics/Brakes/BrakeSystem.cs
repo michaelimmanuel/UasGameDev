@@ -12,13 +12,18 @@ namespace VehiclePhysics
         public PowertrainSystem powertrain; // optional reference to reduce wheelFxRequested
 
         [Header("Brake Input")]
-        [Range(0f,1f)] public float brakeInput; // set by controller (0..1)
+        [Range(0f,1f)] public float brakeInput;    // service brake (0..1)
+        [Range(0f,1f)] public float handbrakeInput; // handbrake (0..1) rear-only
 
         [Header("Params")]
         [Tooltip("Maximum brake torque at full input per powered/braked wheel (N·m)")]
         public float maxBrakeTorque = 3000f;
         [Tooltip("Front brake bias (0..1). Remaining goes to rear.")]
         [Range(0f,1f)] public float frontBias = 0.65f;
+        [Tooltip("Maximum handbrake torque applied to rear wheels (N·m)")]
+        public float maxHandbrakeTorque = 12000f;
+        [Tooltip("When true, handbrake ignores frontBias and applies only to rear wheels.")]
+        public bool handbrakeRearOnly = true;
 
         [Header("Outputs")]
         public float[] wheelBrakeForce; // longitudinal force opposing motion
@@ -54,23 +59,19 @@ namespace VehiclePhysics
                 var w = suspension.wheels[i];
                 float radius = Mathf.Max(0.05f, w.wheelRadius);
                 float torqueShare = w.isFront ? (frontTorqueTotal / frontCount) : (rearTorqueTotal / rearCount);
-                // Force opposing current forward velocity direction
-                float dir = Mathf.Sign(states[i].Vx);
-                float brakeForce = (torqueShare / radius) * dir; // positive if Vx positive
+
+                // Add handbrake torque to rear wheels
+                if (handbrakeInput > 0f && (!handbrakeRearOnly || !w.isFront))
+                {
+                    float hbPerWheel = (maxHandbrakeTorque * handbrakeInput) / Mathf.Max(1f, rearCount);
+                    if (!w.isFront) torqueShare += hbPerWheel; // rear gets HB; fronts get none if rearOnly
+                }
+                // Brake force is a positive magnitude (torque / radius)
+                // WheelDynamics will apply it to oppose wheel rotation
+                float brakeForce = torqueShare / radius;
                 wheelBrakeForce[i] = brakeForce;
             }
 
-            // If linked to powertrain, reduce its FxRequested by brake force
-            if (powertrain != null && powertrain.wheelFxRequested != null)
-            {
-                int m = Mathf.Min(states.Length, powertrain.wheelFxRequested.Length);
-                m = Mathf.Min(m, wheelBrakeForce.Length);
-                for (int i = 0; i < m; i++)
-                {
-                    // Subtract brake force: ensure sign opposes current Fx
-                    powertrain.wheelFxRequested[i] -= wheelBrakeForce[i];
-                }
-            }
         }
     }
 }

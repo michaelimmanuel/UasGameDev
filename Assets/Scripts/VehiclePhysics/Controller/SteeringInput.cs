@@ -16,13 +16,16 @@ namespace VehiclePhysics
         public float maxSteerDeg = 30f;
 
         [Tooltip("Speed (m/s) at which steering reduces to minFactor of max.")]
-        public float speedRef = 25f; // ~90 km/h
+        public float speedRef = 30f; // ~108 km/h
 
         [Tooltip("Minimum fraction of steering kept at high speed (0..1)")]
-        [Range(0.1f, 1f)] public float minFactor = 0.35f;
+        [Range(0.1f, 1f)] public float minFactor = 0.5f;
 
-        [Tooltip("Smoothing factor for steer angle changes (0=no smoothing, 1=instant)")]
-        [Range(0f, 1f)] public float steerLerp = 0.35f;
+        [Tooltip("Steering speed in degrees per second (framerate-independent)")]
+        public float steerSpeed = 200f;
+
+        [Tooltip("Return-to-center speed in degrees per second when no input")]
+        public float returnSpeed = 300f;
 
         private float _currentSteerDeg;
 
@@ -49,7 +52,9 @@ namespace VehiclePhysics
             float factor = 1f - Mathf.Clamp01(speed / Mathf.Max(0.01f, speedRef)) * (1f - minFactor);
             float targetSteer = steerInput * maxSteerDeg * factor;
 
-            _currentSteerDeg = Mathf.Lerp(_currentSteerDeg, targetSteer, steerLerp);
+            // Framerate-independent steering with MoveTowards
+            float currentSpeed = (Mathf.Abs(steerInput) > 0.01f) ? steerSpeed : returnSpeed;
+            _currentSteerDeg = Mathf.MoveTowards(_currentSteerDeg, targetSteer, currentSpeed * Time.deltaTime);
 
             // Apply to front wheels only
             if (suspension.wheels == null) return;

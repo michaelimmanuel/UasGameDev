@@ -7,12 +7,21 @@ namespace VehiclePhysics.Visuals
     public class WheelAnimator : MonoBehaviour
     {
         public VehiclePhysics.SuspensionSystem suspension;
+        public VehiclePhysics.PowertrainSystem powertrain; // optional: improve spin during accel/brake
+        public VehiclePhysics.BrakeSystem brakeSystem;     // optional: include brake influence
+        public VehiclePhysics.SlipCalculator slipCalc;     // optional: clamp by traction limit μx·N
         [Tooltip("Wheel visual transforms (center). Size must match number of wheels.")]
         public Transform[] wheelVisuals;
 
         [Header("Options")]
         [Tooltip("Use ground normal to place wheel center when grounded. If false, uses chassis up.")]
         public bool useGroundNormalForCenter = true;
+        [Tooltip("When speed or compression rate is high, switch to attach-based center to prevent visuals lagging inside body.")]
+        public bool autoSwitchCenterAtHighDynamics = true;
+        [Tooltip("Local wheel-frame speed threshold (m/s) to switch center mode.")]
+        public float centerSwitchSpeed = 5f;
+        [Tooltip("Suspension compression rate threshold (m/s) to switch center mode.")]
+        public float centerSwitchCompressionRate = 1.0f;
         [Tooltip("Clamp spin speed at very low velocity to avoid jitter.")]
         public float minSpinSpeedKmh = 0.5f;
         [Tooltip("Apply a fixed local rotation offset to the visual wheel (e.g., 90° around X if mesh axle isn't local right).")]
@@ -21,16 +30,29 @@ namespace VehiclePhysics.Visuals
         public bool invertRightWheelOffset = true;
 
         private float[] _spinAngleRad;
+        private float[] _omega; // rad/s estimate per wheel
+
+        [Header("Spin Estimation")]
+        [Tooltip("Blend factor between kinematic spin (from Vx/R) and torque-based spin. 0=Vx only, 1=torque only.")]
+        [Range(0f,1f)] public float torqueSpinBlend = 0.5f;
+        [Tooltip("Approximate wheel rotational inertia (kg·m²). 0.6–1.2 typical road car.")]
+        public float wheelInertia = 0.9f;
 
         void Reset()
         {
             if (suspension == null) suspension = GetComponentInParent<VehiclePhysics.SuspensionSystem>();
+            if (powertrain == null) powertrain = GetComponentInParent<VehiclePhysics.PowertrainSystem>();
+            if (brakeSystem == null) brakeSystem = GetComponentInParent<VehiclePhysics.BrakeSystem>();
+            if (slipCalc == null) slipCalc = GetComponentInParent<VehiclePhysics.SlipCalculator>();
             AutoAssignVisuals();
         }
 
         void Awake()
         {
             if (suspension == null) suspension = GetComponentInParent<VehiclePhysics.SuspensionSystem>();
+            if (powertrain == null) powertrain = GetComponentInParent<VehiclePhysics.PowertrainSystem>();
+            if (brakeSystem == null) brakeSystem = GetComponentInParent<VehiclePhysics.BrakeSystem>();
+            if (slipCalc == null) slipCalc = GetComponentInParent<VehiclePhysics.SlipCalculator>();
             Allocate();
             if (wheelVisuals == null || wheelVisuals.Length == 0) AutoAssignVisuals();
         }
@@ -46,6 +68,8 @@ namespace VehiclePhysics.Visuals
             int n = suspension.wheels.Length;
             if (_spinAngleRad == null || _spinAngleRad.Length != n)
                 _spinAngleRad = new float[n];
+            if (_omega == null || _omega.Length != n)
+                _omega = new float[n];
             if (wheelVisuals == null || wheelVisuals.Length != n)
             {
                 var arr = new Transform[n];
@@ -84,10 +108,39 @@ namespace VehiclePhysics.Visuals
                 var w = suspension.wheels[i];
                 var ws = states[i];
                 float radius = Mathf.Max(0.01f, w.wheelRadius);
-                // Spin from longitudinal contact velocity along wheel forward
-                float omega = ws.Vx / radius; // rad/s, signed
+                // Kinematic omega from contact forward velocity
+                float omegaKinematic = ws.Vx / radius; // rad/s
+
+                // Torque-derived omega integration (approx): alpha = (T_net) / I
+                float omegaTorque = _omega[i];
+                if (powertrain != null && powertrain.wheelFxRequested != null && powertrain.wheelFxRequested.Length == n)
+                {
+                    float Fx_req = powertrain.wheelFxRequested[i];
+                    // Clamp by traction limit using μx·N if available, to avoid uncontrolled visual wheelspin
+                    if (slipCalc != null && slipCalc.muX != null && slipCalc.muX.Length == n)
+                    {
+                        float N = ws.loadN;
+                        float Fx_lim = Mathf.Max(0f, slipCalc.muX[i] * N);
+                        Fx_req = Mathf.Clamp(Fx_req, -Fx_lim, Fx_lim);
+                    }
+                    float T_drive = Fx_req * radius; // N·m
+                    float T_brake = 0f;
+                    if (brakeSystem != null && brakeSystem.wheelBrakeForce != null && brakeSystem.wheelBrakeForce.Length == n)
+                    {
+                        // Brake force opposes motion; convert to torque
+                        T_brake = brakeSystem.wheelBrakeForce[i] * radius;
+                    }
+                    float T_net = T_drive - T_brake;
+                    float I = Mathf.Max(0.05f, wheelInertia);
+                    float alpha = T_net / I; // rad/s²
+                    omegaTorque += alpha * dt;
+                }
+
+                // Blend estimates
+                float omega = Mathf.Lerp(omegaKinematic, omegaTorque, torqueSpinBlend);
                 // Small deadzone to stop jitter
-                if (Mathf.Abs(ws.Vx) < (minSpinSpeedKmh / 3.6f)) omega = 0f;
+                if (Mathf.Abs(ws.Vx) < (minSpinSpeedKmh / 3.6f) && Mathf.Abs(omega) < 0.2f) omega = 0f;
+                _omega[i] = omega;
                 _spinAngleRad[i] += omega * dt;
             }
         }
@@ -107,7 +160,16 @@ namespace VehiclePhysics.Visuals
 
                 // Determine wheel center
                 Vector3 center;
-                if (ws.grounded && useGroundNormalForCenter)
+                bool useAttachCenter = false;
+                if (autoSwitchCenterAtHighDynamics && ws.grounded)
+                {
+                    // Switch to attach-based center when dynamics are high to avoid visual lag into body
+                    float localSpeed = Mathf.Sqrt(ws.Vx * ws.Vx + ws.Vy * ws.Vy);
+                    if (localSpeed > centerSwitchSpeed || Mathf.Abs(w.compressionRate) > centerSwitchCompressionRate)
+                        useAttachCenter = true;
+                }
+
+                if (ws.grounded && useGroundNormalForCenter && !useAttachCenter)
                 {
                     // Use wheel's stored contact normal from SuspensionSystem
                     center = ws.position + w.contactNormal.normalized * w.wheelRadius;
