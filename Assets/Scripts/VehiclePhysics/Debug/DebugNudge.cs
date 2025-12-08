@@ -78,9 +78,18 @@ namespace VehiclePhysics
             if (!showHud) return;
             if (rb == null) return;
             string status = Input.GetKey(nudgeKey) ? "NUDGE: ON" : "NUDGE: off";
-            GUILayout.BeginArea(new Rect(10, 420, 180, 40), GUI.skin.box);
-            GUILayout.Label(status + $"  v={rb.linearVelocity.magnitude:F1} m/s");
-            GUILayout.EndArea();
+            bool areaStarted = false;
+            try
+            {
+                GUILayout.BeginArea(new Rect(10, 420, 180, 40), GUI.skin.box);
+                areaStarted = true;
+                float speed = rb.linearVelocity.magnitude;
+                GUILayout.Label(status + $"  v={speed:F1} m/s");
+            }
+            finally
+            {
+                if (areaStarted) GUILayout.EndArea();
+            }
         }
     }
 }

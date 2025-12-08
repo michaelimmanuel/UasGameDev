@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd342e261451c4c43951114fdc434ae2, type: 3}
   m_Name: RearAxleData
   m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.SuspensionAxleData
-  springK: 33000
+  springK: 70000
   damperC: 6000
-  restLength: 0.2
+  restLength: 0.18
   maxTravel: 0.12
   antiRollStiffness: 14000

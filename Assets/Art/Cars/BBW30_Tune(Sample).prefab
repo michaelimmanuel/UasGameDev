@@ -175,6 +175,8 @@ GameObject:
   - component: {fileID: 1166951893516835948}
   - component: {fileID: 3268037261632759230}
   - component: {fileID: 195849397030297339}
+  - component: {fileID: 168665740215351195}
+  - component: {fileID: 2548250010429387206}
   m_Layer: 0
   m_Name: BBW30_Tune(Sample)
   m_TagString: Untagged
@@ -381,6 +383,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.SimpleTireModel
   curveData: {fileID: 11400000, guid: 1057711f6e05ca049a79a5a5399d7362, type: 2}
   globalMuScale: 1
+  enableCombinedSlip: 1
+  combinedSlipStrength: 0.85
+  combinedSlipThreshold: 0.35
+  lockupSlipRatio: 0.9
+  lockedWheelLateralGrip: 0.25
 --- !u!114 &4178902147604437898
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -396,9 +403,10 @@ MonoBehaviour:
   suspension: {fileID: 1816659653586185766}
   rb: {fileID: 8326291971020064828}
   maxSteerDeg: 30
-  speedRef: 25
-  minFactor: 0.35
-  steerLerp: 0.35
+  speedRef: 30
+  minFactor: 0.5
+  steerSpeed: 200
+  returnSpeed: 300
 --- !u!114 &8674403455154366140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -414,8 +422,12 @@ MonoBehaviour:
   suspension: {fileID: 1816659653586185766}
   engineCurve: {fileID: 11400000, guid: 5f1efb9df56e3e0429c1d8afd0707bae, type: 2}
   gearbox: {fileID: 11400000, guid: c8568157df5d6df4e9d66f1675a760ce, type: 2}
+  slipCalc: {fileID: 151154926778762572}
   throttle: 0
   brake: 0
+  engineBrakeSpeedEpsilon: 0.3
+  enableTractionAssist: 1
+  tractionAssistStrength: 1
   currentGear: 1
   engineRpm: 0
   engineTorque: 0
@@ -434,11 +446,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dd133c59d2b4854090f560e14349b8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.BrakeSystem
-  suspension: {fileID: 0}
-  powertrain: {fileID: 0}
+  suspension: {fileID: 1816659653586185766}
+  powertrain: {fileID: 8674403455154366140}
   brakeInput: 0
-  maxBrakeTorque: 3000
+  handbrakeInput: 0
+  maxBrakeTorque: 5000
   frontBias: 0.65
+  maxHandbrakeTorque: 16000
+  handbrakeRearOnly: 1
   wheelBrakeForce: []
 --- !u!114 &1166951893516835948
 MonoBehaviour:
@@ -457,6 +472,12 @@ MonoBehaviour:
   brakes: {fileID: 926434950792251831}
   steerAxis: Horizontal
   throttleBrakeAxis: Vertical
+  handbrakeAxis: Jump
+  smoothThrottle: 1
+  throttleCurveExponent: 1.6
+  throttleRisePerSecond: 2
+  throttleFallPerSecond: 6
+  throttleDeadzone: 0.04
   autoGear: 1
   upshiftRpm: 6200
   downshiftRpm: 1800
@@ -478,11 +499,14 @@ MonoBehaviour:
   powertrain: {fileID: 8674403455154366140}
   brakeSystem: {fileID: 926434950792251831}
   longitudinalDampingK: 200
-  alphaPeakDeg: 8
+  alphaDeadzoneDeg: 1.5
   lowSpeedLateralK: 600
   lateralZeroSpeed: 0.08
   lateralCapSpeed: 1
   lateralMaxPerSpeed: 1500
+  enableFrontFxReserve: 1
+  frontFxReserveStrength: 0.8
+  frontFxReservePeakDeg: 10
   holdAtRest: 1
   holdSpeed: 0.05
   holdBoost: 4
@@ -501,15 +525,75 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.Visuals.WheelAnimator
   suspension: {fileID: 1816659653586185766}
+  powertrain: {fileID: 8674403455154366140}
+  brakeSystem: {fileID: 926434950792251831}
+  slipCalc: {fileID: 0}
   wheelVisuals:
   - {fileID: 5750983574944334318}
   - {fileID: 2416285444236534668}
   - {fileID: 1326670405800619288}
   - {fileID: 1333784041653825519}
   useGroundNormalForCenter: 1
+  autoSwitchCenterAtHighDynamics: 1
+  centerSwitchSpeed: 5
+  centerSwitchCompressionRate: 1
   minSpinSpeedKmh: 0.5
   visualRotationOffsetEuler: {x: 0, y: 0, z: 90}
   invertRightWheelOffset: 1
+  torqueSpinBlend: 0.5
+  wheelInertia: 0.9
+--- !u!114 &168665740215351195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1321311961330773438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8996d17942edad488dc90fdc0337cba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.Visuals.SkidmarkEmitter
+  suspension: {fileID: 1816659653586185766}
+  slipCalc: {fileID: 151154926778762572}
+  manager: {fileID: 0}
+  powertrain: {fileID: 8674403455154366140}
+  brakes: {fileID: 926434950792251831}
+  slipRatioStart: 0.3
+  slipRatioStop: 0.2
+  slipAngleStartDeg: 22
+  slipAngleStopDeg: 15
+  minLocalSpeed: 2
+  minNormalLoad: 800
+  minTimeAboveThreshold: 0.12
+  markWidth: 0.18
+  minSegmentDistance: 0.12
+  maxStreakDistance: 10
+  intensityScale: 0.9
+  slipRatioFullIntensity: 0.3
+  slipAngleFullIntensity: 30
+  lowSpeedIntensityFactor: 0.35
+--- !u!114 &2548250010429387206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1321311961330773438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1f10d839b30ee64ca62d5d6d11ce566, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.WheelDynamics
+  suspension: {fileID: 1816659653586185766}
+  powertrain: {fileID: 8674403455154366140}
+  brakeSystem: {fileID: 926434950792251831}
+  slipCalc: {fileID: 151154926778762572}
+  wheelInertia: 0.9
+  maxAngularAccel: 500
+  maxOmega: 200
+  handbrakeInstantLockup: 0.7
+  handbrakeThreshold: 0.5
 --- !u!1 &1456889007110435956
 GameObject:
   m_ObjectHideFlags: 0
