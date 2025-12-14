@@ -10,6 +10,10 @@ namespace VehiclePhysics
     {
         public SuspensionSystem suspension;
         public PowertrainSystem powertrain; // optional reference to reduce wheelFxRequested
+        [Header("Audio (optional)")]
+        public SimpleRPMBankPlayer rpmBankPlayer;
+        public CarAudioController carAudioController;
+        public ThreeBandEnginePlayer threeBandPlayer;
 
         [Header("Brake Input")]
         [Range(0f,1f)] public float brakeInput;    // service brake (0..1)
@@ -71,7 +75,22 @@ namespace VehiclePhysics
                 float brakeForce = torqueShare / radius;
                 wheelBrakeForce[i] = brakeForce;
             }
+            // Forward telemetry to optional audio components (powertrain contains engineRpm/throttle)
+            if (powertrain != null)
+            {
+                float rpm = powertrain.engineRpm;
+                float thr = powertrain.throttle;
+                int g = powertrain.currentGear;
 
+                // approximate vehicle speed from wheel states (average absolute Vx)
+                float sumVx = 0f; int cnt = 0;
+                for (int i = 0; i < states.Length; i++) { sumVx += Mathf.Abs(states[i].Vx); cnt++; }
+                float speed = cnt > 0 ? sumVx / cnt : 0f;
+
+                if (rpmBankPlayer != null) rpmBankPlayer.SetRPM(rpm);
+                if (carAudioController != null) carAudioController.SetTelemetry(rpm, thr, 0f, g, speed);
+                if (threeBandPlayer != null) threeBandPlayer.SetTelemetry(rpm, thr, 0f, g, speed);
+            }
         }
     }
 }
