@@ -239,12 +239,6 @@ namespace VehiclePhysics
 
                 // Clamp via ellipse
                 Vector2 F = ClampEllipse(new Vector2(Fx_req, Fy_req), new Vector2(Fx_lim, Fy_lim));
-                // Write the final applied longitudinal force back to SlipCalculator so WheelDynamics
-                // can use the actual applied force to compute wheel reaction torque.
-                if (slipCalc != null && slipCalc.appliedFx != null && slipCalc.appliedFx.Length > i)
-                {
-                    slipCalc.appliedFx[i] = F.x;
-                }
                 float u = Utilization(F, Fx_lim, Fy_lim);
                 _utilization[i] = u;
 
