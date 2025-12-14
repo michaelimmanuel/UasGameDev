@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: GearboxData
   m_EditorClassIdentifier: Assembly-CSharp::VehiclePhysics.GearboxData
   gearRatios:
-  - 3.8
-  - 2.2
-  - 1.52
-  - 1.22
+  - 3.72
+  - 2.4
+  - 1.77
+  - 1.26
   - 1
   finalDrive: 3.73
   efficiency: 0.92
