@@ -1018,6 +1018,7 @@ GameObject:
   - component: {fileID: 354533037}
   - component: {fileID: 354533036}
   - component: {fileID: 354533039}
+  - component: {fileID: 354533040}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1092,12 +1093,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 354533035}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.1720943, y: 0.0871943, z: 0.11352244, w: -0.97462475}
-  m_LocalPosition: {x: 0.20999822, y: 2.96, z: 1.9100007}
+  m_LocalRotation: {x: 0.04148135, y: 0.75061804, z: 0.20194821, w: -0.6277489}
+  m_LocalPosition: {x: -13.239865, y: 3.2305708, z: -32.108776}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 917026910}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -20.809, y: 351.951, z: -11.807}
 --- !u!114 &354533039
 MonoBehaviour:
@@ -1143,6 +1144,23 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &354533040
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 354533035}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e47e8cfb86333e344b9141ca16492bc8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraController
+  moveSmoothness: 5
+  rotSmoothness: 7
+  moveOffset: {x: 0, y: 2, z: -3.5}
+  rotOffset: {x: 0, y: 0, z: 0}
+  carTarget: {fileID: 917026910}
 --- !u!1001 &385199473
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3047,6 +3065,10 @@ PrefabInstance:
       propertyPath: m_TagString
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 1816659653586185766, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
+      propertyPath: groundMask.m_Bits
+      value: 4294967295
+      objectReference: {fileID: 0}
     - target: {fileID: 8436989429247684027, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
       propertyPath: m_LocalPosition.x
       value: -11.33
@@ -3089,10 +3111,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 8436989429247684027, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 354533038}
+    m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bad197a9af4f7a34c828f96149c03b34, type: 3}
 --- !u!4 &917026910 stripped
@@ -9144,3 +9163,4 @@ SceneRoots:
   - {fileID: 917026909}
   - {fileID: 1445129124}
   - {fileID: 1585194686}
+  - {fileID: 354533038}
