@@ -54,7 +54,7 @@ namespace VehiclePhysics.Visuals
             if (manager == null)
             {
                 // Try to find in scene
-                manager = FindObjectOfType<SkidmarkManager>();
+                manager = Object.FindFirstObjectByType<SkidmarkManager>();
             }
             if (powertrain == null) powertrain = GetComponentInParent<VehiclePhysics.PowertrainSystem>();
             if (brakes == null) brakes = GetComponentInParent<VehiclePhysics.BrakeSystem>();
