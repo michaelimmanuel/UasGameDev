@@ -36,6 +36,8 @@ namespace VehiclePhysics
         public float downshiftRpm = 1800f;
 
         private float _smoothedThrottle;
+            // Track last fixed time a gear change occurred to avoid multiple shifts per physics step
+            private float _lastShiftFixedTime = -1f;
 
         void Reset()
         {
@@ -90,10 +92,21 @@ namespace VehiclePhysics
             if (autoGear && powertrain.engineCurve != null && powertrain.gearbox != null)
             {
                 // Simple auto shift based on RPM thresholds
-                if (powertrain.engineRpm > upshiftRpm && powertrain.currentGear < powertrain.gearbox.gearRatios.Length)
-                    powertrain.currentGear++;
-                else if (powertrain.engineRpm < downshiftRpm && powertrain.currentGear > 1)
-                    powertrain.currentGear--;
+                // Only allow one gear change per physics step to prevent skipping when Update()
+                // runs multiple times between FixedUpdate ticks.
+                if (Time.fixedTime > _lastShiftFixedTime)
+                {
+                    if (powertrain.engineRpm > upshiftRpm && powertrain.currentGear < powertrain.gearbox.gearRatios.Length)
+                    {
+                        powertrain.currentGear++;
+                        _lastShiftFixedTime = Time.fixedTime;
+                    }
+                    else if (powertrain.engineRpm < downshiftRpm && powertrain.currentGear > 1)
+                    {
+                        powertrain.currentGear--;
+                        _lastShiftFixedTime = Time.fixedTime;
+                    }
+                }
             }
         }
     }

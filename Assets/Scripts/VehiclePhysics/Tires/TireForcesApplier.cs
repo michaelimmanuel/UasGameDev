@@ -112,10 +112,9 @@ namespace VehiclePhysics
                 var w = suspension.wheels[i];
                 var ws = states[i];
 
-                // Wheel frame
-                Quaternion steerRot = Quaternion.AngleAxis(w.steerDeg, suspension.transform.up);
-                Vector3 wheelFwd = steerRot * w.attach.forward;
-                Vector3 wheelRight = Vector3.Cross(suspension.transform.up, wheelFwd).normalized;
+                // Wheel frame - use frame computed by SuspensionSystem (contact-aligned)
+                Vector3 wheelFwd = ws.forward;
+                Vector3 wheelRight = ws.right;
 
                 float N = ws.loadN;
                 if (!ws.grounded || N <= 1e-3f)
