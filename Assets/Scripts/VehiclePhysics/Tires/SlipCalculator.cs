@@ -17,12 +17,11 @@ namespace VehiclePhysics
         [Tooltip("Min forward speed added for slip angle to keep steering responsive. Higher = less sensitive at low speed.")]
         public float aEpsilon = 2.0f; // m/s - increased to prevent false slip angles at low speed
 
-        [Header("Outputs (debug)" )] 
+        [Header("Outputs (debug)")] 
         public float[] slipRatio;     // per wheel
         public float[] slipAngleDeg;  // per wheel
         public float[] muX;           // longitudinal μ
         public float[] muY;           // lateral μ
-        public float[] appliedFx;     // final applied longitudinal force (N) per wheel - written by TireForcesApplier
 
         void Awake()
         {
@@ -43,7 +42,6 @@ namespace VehiclePhysics
             slipAngleDeg = new float[n];
             muX = new float[n];
             muY = new float[n];
-            appliedFx = new float[n];
         }
 
         void FixedUpdate()
@@ -74,7 +72,6 @@ namespace VehiclePhysics
                     slipAngleDeg[i] = 0f;
                     muX[i] = 0f;
                     muY[i] = 0f;
-                    appliedFx[i] = 0f;
                     continue;
                 }
 
