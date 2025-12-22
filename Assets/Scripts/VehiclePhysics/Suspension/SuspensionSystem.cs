@@ -158,11 +158,15 @@ namespace VehiclePhysics
                     rb.AddForceAtPosition(up * normalForce, w.contactPoint, ForceMode.Force);
                 }
 
-                // Build wheel frame (apply steer about chassis up)
-                Quaternion steerRot = Quaternion.AngleAxis(w.steerDeg, transform.up);
-                Vector3 wheelFwd = steerRot * w.attach.forward;
-                // Use cross product to ensure a consistent right axis even if the attach transform is mirrored
-                Vector3 wheelRight = Vector3.Cross(transform.up, wheelFwd).normalized;
+                // Build wheel frame. When grounded, align wheel 'up' with contact normal
+                Vector3 upForWheel = w.grounded ? w.contactNormal : transform.up;
+                Quaternion steerRot = Quaternion.AngleAxis(w.steerDeg, upForWheel);
+                // Project attach.forward onto plane orthogonal to upForWheel to keep forward tangent to contact
+                Vector3 rawFwd = steerRot * w.attach.forward;
+                Vector3 wheelFwd = Vector3.ProjectOnPlane(rawFwd, upForWheel).normalized;
+                if (wheelFwd.sqrMagnitude < 1e-6f) wheelFwd = Vector3.Cross(upForWheel, w.attach.right).normalized;
+                // Use cross product to ensure a consistent right axis
+                Vector3 wheelRight = Vector3.Cross(upForWheel, wheelFwd).normalized;
 
                 // Local velocities at contact/attachment
                 Vector3 v = rb.GetPointVelocity(w.contactPoint);
@@ -190,7 +194,8 @@ namespace VehiclePhysics
             }
 
             // Apply anti-roll bars as equal-and-opposite forces per axle
-            Vector3 upDir = transform.up;
+            // Use contact normals when available so anti-roll applies along wheel/surface normals
+            // This reduces cross-coupled torques on banked surfaces.
             // Front axle
             if (flSet && frSet && frontAxle != null)
             {
@@ -200,9 +205,15 @@ namespace VehiclePhysics
                 if (wl != null && wr != null && wl.grounded && wr.grounded)
                 {
                     float arf = frontAxle.antiRollStiffness * diff;
-                    // Resist roll: push UP on the more compressed side, DOWN on the less compressed
-                    rb.AddForceAtPosition(upDir * arf, wl.contactPoint, ForceMode.Force);   // left
-                    rb.AddForceAtPosition(upDir * -arf, wr.contactPoint, ForceMode.Force);  // right
+                    // Convert the pair of equal-and-opposite forces into their equivalent torques
+                    // applied about the rigidbody's center of mass: τ = r × F
+                    Vector3 rL = wl.contactPoint - rb.worldCenterOfMass;
+                    Vector3 rR = wr.contactPoint - rb.worldCenterOfMass;
+                    Vector3 fL = wl.contactNormal * arf;
+                    Vector3 fR = wr.contactNormal * -arf;
+                    Vector3 torqueL = Vector3.Cross(rL, fL);
+                    Vector3 torqueR = Vector3.Cross(rR, fR);
+                    rb.AddTorque(torqueL + torqueR, ForceMode.Force);
                 }
             }
             // Rear axle
@@ -214,8 +225,13 @@ namespace VehiclePhysics
                 if (wl != null && wr != null && wl.grounded && wr.grounded)
                 {
                     float arf = rearAxle.antiRollStiffness * diff;
-                    rb.AddForceAtPosition(upDir * arf, wl.contactPoint, ForceMode.Force);   // left
-                    rb.AddForceAtPosition(upDir * -arf, wr.contactPoint, ForceMode.Force);  // right
+                    Vector3 rL = wl.contactPoint - rb.worldCenterOfMass;
+                    Vector3 rR = wr.contactPoint - rb.worldCenterOfMass;
+                    Vector3 fL = wl.contactNormal * arf;
+                    Vector3 fR = wr.contactNormal * -arf;
+                    Vector3 torqueL = Vector3.Cross(rL, fL);
+                    Vector3 torqueR = Vector3.Cross(rR, fR);
+                    rb.AddTorque(torqueL + torqueR, ForceMode.Force);
                 }
             }
         }

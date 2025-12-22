@@ -32,9 +32,9 @@ public sealed class SetupMenuScenes : EditorWindow
         {
             SetupStartMenu();
             SetupTrackSelect();
-            SetupTrack2();
-            SetupTrack3();
             SetupTrack1Pause();
+            SetupTrack2Pause();
+            SetupTrack3Pause();
             EditorUtility.DisplayDialog("Complete", "All Full Throttle menus have been set up!", "OK");
         }
         
@@ -51,19 +51,19 @@ public sealed class SetupMenuScenes : EditorWindow
             SetupTrackSelect();
         }
         
-        if (GUILayout.Button("Setup Track_2 Scene"))
-        {
-            SetupTrack2();
-        }
-        
-        if (GUILayout.Button("Setup Track_3 Scene"))
-        {
-            SetupTrack3();
-        }
-        
         if (GUILayout.Button("Setup Track 1 Pause Menu"))
         {
             SetupTrack1Pause();
+        }
+        
+        if (GUILayout.Button("Setup Track 2 Pause Menu"))
+        {
+            SetupTrack2Pause();
+        }
+        
+        if (GUILayout.Button("Setup Track 3 Pause Menu"))
+        {
+            SetupTrack3Pause();
         }
     }
 
@@ -273,115 +273,8 @@ public sealed class SetupMenuScenes : EditorWindow
         Debug.Log("Track_Select scene set up successfully with Full Throttle design!");
     }
 
-    private static void SetupTrack2()
+    private static void SetupTrackPause(string scenePath, string trackName)
     {
-        string scenePath = "Assets/Scenes/Track_2.unity";
-        Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-        
-        GameObject canvas = FindOrCreateCanvas();
-        GameObject eventSystem = FindOrCreateEventSystem();
-        
-        // Background
-        GameObject background = CreatePanel(canvas.transform, "Background");
-        Image bgImage = background.GetComponent<Image>();
-        bgImage.color = BACKGROUND_DARK;
-        RectTransform bgRect = background.GetComponent<RectTransform>();
-        bgRect.anchorMin = new Vector2(0, 0);
-        bgRect.anchorMax = new Vector2(1, 1);
-        bgRect.sizeDelta = Vector2.zero;
-        bgRect.anchoredPosition = Vector2.zero;
-        
-        GameObject panel = CreatePanel(canvas.transform, "PlaceholderPanel");
-        Image panelImage = panel.GetComponent<Image>();
-        panelImage.color = new Color(0, 0, 0, 0);
-        
-        RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.anchorMin = new Vector2(0, 0);
-        panelRect.anchorMax = new Vector2(1, 1);
-        panelRect.sizeDelta = Vector2.zero;
-        panelRect.anchoredPosition = Vector2.zero;
-        
-        // Title
-        TextMeshProUGUI titleText = CreateStyledText(panel.transform, "TRACK 2", new Vector2(0, 80), 64, RACING_ORANGE);
-        titleText.fontStyle = FontStyles.Bold;
-        
-        // Placeholder text
-        TextMeshProUGUI placeholderText = CreateStyledText(panel.transform, "COMING SOON", new Vector2(0, 0), 32, ACCENT_YELLOW);
-        placeholderText.fontStyle = FontStyles.Italic;
-        
-        TextMeshProUGUI descText = CreateStyledText(panel.transform, "This track is under construction", new Vector2(0, -40), 22, Color.white);
-        descText.fontStyle = FontStyles.Normal;
-        
-        Button backButton = CreateRacingButton(panel.transform, "BACK TO MENU", new Vector2(0, -120), RACING_RED);
-        
-        GameObject controller = new GameObject("PlaceholderTrackSceneController");
-        PlaceholderTrackSceneController placeholderController = controller.AddComponent<PlaceholderTrackSceneController>();
-        
-        System.Reflection.FieldInfo backField = typeof(PlaceholderTrackSceneController).GetField("backButton", 
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        backField?.SetValue(placeholderController, backButton);
-        
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-        Debug.Log("Track_2 scene set up successfully with Full Throttle design!");
-    }
-
-    private static void SetupTrack3()
-    {
-        string scenePath = "Assets/Scenes/Track_3.unity";
-        Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-        
-        GameObject canvas = FindOrCreateCanvas();
-        GameObject eventSystem = FindOrCreateEventSystem();
-        
-        // Background
-        GameObject background = CreatePanel(canvas.transform, "Background");
-        Image bgImage = background.GetComponent<Image>();
-        bgImage.color = BACKGROUND_DARK;
-        RectTransform bgRect = background.GetComponent<RectTransform>();
-        bgRect.anchorMin = new Vector2(0, 0);
-        bgRect.anchorMax = new Vector2(1, 1);
-        bgRect.sizeDelta = Vector2.zero;
-        bgRect.anchoredPosition = Vector2.zero;
-        
-        GameObject panel = CreatePanel(canvas.transform, "PlaceholderPanel");
-        Image panelImage = panel.GetComponent<Image>();
-        panelImage.color = new Color(0, 0, 0, 0);
-        
-        RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.anchorMin = new Vector2(0, 0);
-        panelRect.anchorMax = new Vector2(1, 1);
-        panelRect.sizeDelta = Vector2.zero;
-        panelRect.anchoredPosition = Vector2.zero;
-        
-        // Title
-        TextMeshProUGUI titleText = CreateStyledText(panel.transform, "TRACK 3", new Vector2(0, 80), 64, RACING_ORANGE);
-        titleText.fontStyle = FontStyles.Bold;
-        
-        // Placeholder text
-        TextMeshProUGUI placeholderText = CreateStyledText(panel.transform, "COMING SOON", new Vector2(0, 0), 32, ACCENT_YELLOW);
-        placeholderText.fontStyle = FontStyles.Italic;
-        
-        TextMeshProUGUI descText = CreateStyledText(panel.transform, "This track is under construction", new Vector2(0, -40), 22, Color.white);
-        descText.fontStyle = FontStyles.Normal;
-        
-        Button backButton = CreateRacingButton(panel.transform, "BACK TO MENU", new Vector2(0, -120), RACING_RED);
-        
-        GameObject controller = new GameObject("PlaceholderTrackSceneController");
-        PlaceholderTrackSceneController placeholderController = controller.AddComponent<PlaceholderTrackSceneController>();
-        
-        System.Reflection.FieldInfo backField = typeof(PlaceholderTrackSceneController).GetField("backButton", 
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        backField?.SetValue(placeholderController, backButton);
-        
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-        Debug.Log("Track_3 scene set up successfully with Full Throttle design!");
-    }
-
-    private static void SetupTrack1Pause()
-    {
-        string scenePath = "Assets/Scenes/track 1.unity";
         if (!System.IO.File.Exists(scenePath))
         {
             Debug.LogError($"Scene not found: {scenePath}");
@@ -394,7 +287,7 @@ public sealed class SetupMenuScenes : EditorWindow
         GameObject existingPause = GameObject.Find("PauseMenuController");
         if (existingPause != null)
         {
-            Debug.Log("Removing existing pause menu to recreate with Full Throttle theme...");
+            Debug.Log($"Removing existing pause menu to recreate with Full Throttle theme...");
             Object.DestroyImmediate(existingPause);
         }
         
@@ -408,10 +301,12 @@ public sealed class SetupMenuScenes : EditorWindow
         GameObject canvas = FindOrCreateCanvas();
         GameObject eventSystem = FindOrCreateEventSystem();
         
-        // Ensure Canvas Scaler is properly configured for pause menu
+        // Only configure Canvas Scaler if it doesn't exist - don't modify existing settings
+        // to avoid affecting existing UI elements like LapTimeText
         CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
-        if (scaler != null)
+        if (scaler == null)
         {
+            scaler = canvas.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
@@ -491,7 +386,22 @@ public sealed class SetupMenuScenes : EditorWindow
         
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
-        Debug.Log("Track 1 pause menu set up successfully with Full Throttle design!");
+        Debug.Log($"{trackName} pause menu set up successfully with Full Throttle design!");
+    }
+
+    private static void SetupTrack1Pause()
+    {
+        SetupTrackPause("Assets/Scenes/track 1.unity", "Track 1");
+    }
+
+    private static void SetupTrack2Pause()
+    {
+        SetupTrackPause("Assets/Scenes/track 2.unity", "Track 2");
+    }
+
+    private static void SetupTrack3Pause()
+    {
+        SetupTrackPause("Assets/Scenes/track 3.unity", "Track 3");
     }
 
     private static GameObject FindOrCreateCanvas()
@@ -515,10 +425,12 @@ public sealed class SetupMenuScenes : EditorWindow
         }
         else
         {
-            // Update existing Canvas Scaler if it exists
+            // Don't modify existing Canvas Scaler to preserve existing UI element positioning
+            // Only add Canvas Scaler if it doesn't exist
             CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
-            if (scaler != null)
+            if (scaler == null)
             {
+                scaler = canvas.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1920, 1080);
                 scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;

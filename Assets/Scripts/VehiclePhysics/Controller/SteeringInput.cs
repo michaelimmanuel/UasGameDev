@@ -28,6 +28,7 @@ namespace VehiclePhysics
         public float returnSpeed = 300f;
 
         private float _currentSteerDeg;
+        private float _targetSteerDeg;
 
         void Reset()
         {
@@ -43,6 +44,7 @@ namespace VehiclePhysics
 
         void Update()
         {
+            // Sample input once per frame and compute the desired target steer angle.
             if (suspension == null) return;
 
             float steerInput = Input.GetAxisRaw("Horizontal");
@@ -50,13 +52,19 @@ namespace VehiclePhysics
 
             // Speed-based reduction: linear from 1 at 0 m/s to minFactor at >= speedRef
             float factor = 1f - Mathf.Clamp01(speed / Mathf.Max(0.01f, speedRef)) * (1f - minFactor);
-            float targetSteer = steerInput * maxSteerDeg * factor;
+            _targetSteerDeg = steerInput * maxSteerDeg * factor;
+        }
 
-            // Framerate-independent steering with MoveTowards
-            float currentSpeed = (Mathf.Abs(steerInput) > 0.01f) ? steerSpeed : returnSpeed;
-            _currentSteerDeg = Mathf.MoveTowards(_currentSteerDeg, targetSteer, currentSpeed * Time.deltaTime);
+        void FixedUpdate()
+        {
+            // Interpolate steering at physics rate to avoid timing jitter with suspension.
+            if (suspension == null) return;
 
-            // Apply to front wheels only
+            // Choose interpolation speed depending on whether there's active input
+            float currentSpeed = (Mathf.Abs(_targetSteerDeg) > 0.01f) ? steerSpeed : returnSpeed;
+            _currentSteerDeg = Mathf.MoveTowards(_currentSteerDeg, _targetSteerDeg, currentSpeed * Time.fixedDeltaTime);
+
+            // Apply to front wheels only (do this in FixedUpdate so suspension reads consistent values)
             if (suspension.wheels == null) return;
             for (int i = 0; i < suspension.wheels.Length; i++)
             {
