@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Gamedev.slnx"
+    "dotnet.defaultSolution": "UasGameDev.slnx"
 }
